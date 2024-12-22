@@ -68,7 +68,7 @@ enum bassStates
   ON_SUM,
   BLOCK_SUM,
   SUS_SUM,
-  FIN_SUM
+  FIN_SUM,
 };
 
 bassStates bassState = NONE;
@@ -346,13 +346,14 @@ enum OuterStates
   MAIN,
   MAIN_BASS,
   BOW,
-  TONE
+  TONE,
+  CHG_VOLUME
 };
 
 OuterStates outerState = INIT;
 
 // hahaha
-static int INSTRUMENT_ = 41;
+static int INSTRUMENT_VIOLIN = 41;
 
 enum states
 {
@@ -492,7 +493,7 @@ int instrument = 41;
 
 M5UnitSynth synth;
 
-int VOLUME = 127;
+int VOLUME = 64;
 
 uint32_t timer = 0;
 
@@ -700,7 +701,7 @@ void setup()
   // #endif
 
   synth.begin(&Serial1, UNIT_SYNTH_BAUD, 1, 2);
-  synth.setInstrument(0, 0, INSTRUMENT_);
+  synth.setInstrument(0, 0, INSTRUMENT_VIOLIN);
   // synth.setNoteOn(0, NOTE_C6, VOLUME);
   // delay(1000);
   synth.setNoteOff(0, NOTE_C6, 0);
@@ -1700,6 +1701,23 @@ void loop()
       USBSerial.println(goSign);
     }
   }
+  else if (outerState == CHG_VOLUME)
+  {
+    if (hexString != "" && hexString != "00")
+    {
+      if (compare(hexString, bowingKeyCfg.upBow))
+      {
+        VOLUME++;
+      }
+      else if (compare(hexString, bowingKeyCfg.downBow))
+      {
+        VOLUME--;
+      }
+      M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(0, 0);
+      M5.Lcd.println(VOLUME);
+    }
+  }
 
   pastState = state;
   lastLoopNote = currentNote;
@@ -1715,7 +1733,13 @@ void loop()
     }
     else if (outerState == MAIN_BASS)
     {
+      outerState = CHG_VOLUME;
+      M5.Lcd.println("VOLUME");
+    }
+    else if (outerState == CHG_VOLUME)
+    {
       outerState = MAIN;
+      synth.setInstrument(0, 0, INSTRUMENT_VIOLIN);
     }
   }
 }

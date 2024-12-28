@@ -13,13 +13,26 @@ int main() {
         return 1;
     }
 
+    int line_count = 0;
+
     // 1行ずつ読み込んで表示
     while (std::getline(file, line)) {
         // "hexString: "で始まる行を見つけた場合
         if (line.find("hexString: ") != std::string::npos) {
             // "hexString: "の後の部分（16進数の文字列）だけを抽出
             std::string hexValue = line.substr(11);
-            std::cout << hexValue << std::endl;
+            line_count++;
+            if (hexValue.find("FE") != 0) {
+                continue;
+            }
+
+
+            if (line_count > 1000) {
+                break;
+            }
+
+            std::cout << line_count << ": " << hexValue << std::endl;
+            
         }
     }
 

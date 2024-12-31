@@ -7,6 +7,18 @@
 #include <vector>
 #include <map>
 
+struct Descriptor
+{
+    std::string UsagePage = "";
+    std::string Usage = "";
+};
+
+void printDescriptor(Descriptor descriptor)
+{
+    std::cout << "UsagePage: " << descriptor.UsagePage << std::endl;
+    std::cout << "Usage: " << descriptor.Usage << std::endl;
+}
+
 // バイトデータを格納する構造体
 struct ByteData
 {
@@ -61,7 +73,26 @@ std::map<int, uint32_t> coloringMapColor = {
     {0xA1, 0xCC22CC},
     {0xC0, 0xCC22CC}};
 
-ByteData annotateItem(ByteData data)
+
+std::map<int, std::string> usagePageMap = {
+    {0x01, "UsagePage(Generic Desktop)"},
+    {0x07, "UsagePage(Keyboard/Keypad)"},
+    {0x09, "UsagePage(Button)"},
+    {0x08, "UsagePage(LED)"}
+};
+
+std::map<int, std::string> usageMap = {
+    {0x01, "Usage(Mouse)"},
+    {0x02, "Usage(Pointer)"},
+    {0x06, "Usage(Keyboard)"},
+    {0x07, "Usage(Keypad)"},
+
+    {0x30, "U (X)"},
+    {0x31, "U (Y)"},
+    {0x38, "U (Wheel)"}
+};
+
+ByteData annotateItem(ByteData data, Descriptor &descriptor)
 {
     uint8_t bSize = 0;
     switch (data.bytes[0] & 0b00000011)
@@ -107,13 +138,36 @@ ByteData annotateItem(ByteData data)
     {
         if (bType == 'G')
         {
-            data.memo = "UsagePage";
-            data.color = 0x5588FF;
+            if (usagePageMap.find(data.bytes[1]) != usagePageMap.end())
+            {
+                data.memo = usagePageMap[data.bytes[1]];
+                data.color = 0x6666FF;
+            }
+            else
+                data.memo = "UsagePage()";
+
+            if (descriptor.UsagePage == "")
+            {
+                descriptor.UsagePage = data.memo;
+            }
         }
         else if (bType == 'L')
         {
             data.memo = "Usage";
             data.color = 0x5588FF;
+
+            if (descriptor.UsagePage == "UsagePage(Generic Desktop)")
+            {
+                if (usageMap.find(data.bytes[1]) != usageMap.end())
+                    data.memo = usageMap[data.bytes[1]];
+                else
+                    data.memo = "Usage()";
+            }
+
+            if (descriptor.Usage == "")
+            {
+                descriptor.Usage = data.memo;
+            }
         }
     }
     else if (bTag == 0b0001)
@@ -191,7 +245,7 @@ ByteData annotateItem(ByteData data)
         else if (bType == 'L')
         {
             data.memo = "StringIndex";
-            data.color = 0xDD0044;        
+            data.color = 0xDD0044;
         }
     }
     else if (bTag == 0b0111)
@@ -328,6 +382,14 @@ int main()
     // 1行ずつ読み込んで表示
     while (std::getline(file, line))
     {
+        Descriptor descriptor;
+
+        // if (line_count == 0)
+        // {
+        //     line_count++;
+        //     continue;
+        // }
+
         // "0501090[126]"のパターンを含む行を検索
         size_t pattern_pos = line.find("0501090");
         if (pattern_pos != std::string::npos &&
@@ -385,7 +447,7 @@ int main()
 
             for (size_t i = 0; i < byteDataArray.size(); i++)
             {
-                byteDataArray[i] = annotateItem(byteDataArray[i]);
+                byteDataArray[i] = annotateItem(byteDataArray[i], descriptor);
             }
 
             // 構造体の内容を表示
@@ -442,7 +504,11 @@ int main()
                     break;
                 }
             }
-            break;
+            // break;
+
+            printf("\n");
+
+            printDescriptor(descriptor);
 
             line_count++;
             if (line_count > 1000)
@@ -452,5 +518,6 @@ int main()
 
     // ファイルを閉じる
     file.close();
+
     return 0;
 }

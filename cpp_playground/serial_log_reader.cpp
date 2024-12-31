@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <map>
 
 // バイトデータを格納する構造体
 struct ByteData
@@ -30,6 +31,12 @@ std::vector<ByteData> doubleParse(uint8_t byteA, uint8_t byteB, std::string memo
     return byteDataArray;
 }
 
+std::map<int, std::string> collectionMap = {
+    {0x00, "Collection(Physical)"},
+    {0x01, "Collection(Application)"}
+};
+
+
 int main()
 {
     // ファイルを開く
@@ -57,6 +64,8 @@ int main()
 
             std::string extracted = line.substr(pattern_pos);
 
+            bool line2pass = false;
+            bool outerCollection = false;
 
             // 2バイト単位でデータを処理
             std::vector<ByteData> byteDataArray;
@@ -82,6 +91,20 @@ int main()
                         parsedData = doubleParse(highByte, lowByte, "Usage(Pointer)", 0x9999FF);
                     else if (lowByte == 0x06)
                         parsedData = doubleParse(highByte, lowByte, "Usage(Keyboard)", 0x9999FF);
+                    line2pass = true;
+                }
+                else if (line2pass && (highByte == 0xA1) && i == 2*4)
+                {
+                    if (collectionMap.find(lowByte) != collectionMap.end())
+                        parsedData = doubleParse(highByte, lowByte, collectionMap[lowByte], 0xCC22CC);
+                    else
+                        parsedData = doubleParse(highByte, lowByte, "Collection(Unknown)", 0xCC00CC);
+                    outerCollection = true;
+                }
+                else if (outerCollection && (highByte == 0xC0) && i == 3*4)
+                {
+                    parsedData = doubleParse(highByte, lowByte, "End Collection", 0xCC22CC);
+                    outerCollection = false;
                 }
                 byteDataArray.insert(byteDataArray.end(), parsedData.begin(), parsedData.end());
             }

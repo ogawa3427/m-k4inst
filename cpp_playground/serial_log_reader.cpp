@@ -10,28 +10,23 @@
 // バイトデータを格納する構造体
 struct ByteData
 {
-    uint8_t value;
+    // 上で定義したbytesを要素に入れる
+    std::vector<uint8_t> bytes;
     uint32_t color;
     std::string memo;
+    uint8_t bSize;
+    char bType;
 };
 
-// 色とメモを判定する関数
-ByteData parseByteData(uint8_t byte, std::string memo, uint32_t color)
-
+ByteData initNewLine(std::vector<uint8_t> bytes)
 {
     ByteData data;
-    data.value = byte;
-    data.color = color;
-    data.memo = memo;
+    data.bytes = bytes;
+    data.color = 0x555555;
+    data.memo = "hoge";
+    data.bSize = 0;
+    data.bType = 'u';
     return data;
-}
-
-std::vector<ByteData> doubleParse(uint8_t byteA, uint8_t byteB, std::string memo, uint32_t color)
-{
-    std::vector<ByteData> byteDataArray;
-    byteDataArray.push_back(parseByteData(byteA, memo, color));
-    byteDataArray.push_back(parseByteData(byteB, memo, color));
-    return byteDataArray;
 }
 
 std::map<int, std::string> collectionMap = {
@@ -66,6 +61,255 @@ std::map<int, uint32_t> coloringMapColor = {
     {0xA1, 0xCC22CC},
     {0xC0, 0xCC22CC}};
 
+ByteData annotateItem(ByteData data)
+{
+    uint8_t bSize = 0;
+    switch (data.bytes[0] & 0b00000011)
+    {
+    case 0b00:
+        bSize = 1;
+        break;
+    case 0b01:
+        bSize = 2;
+        break;
+    case 0b10:
+        bSize = 3;
+        break;
+    case 0b11:
+        bSize = 4;
+        break;
+    }
+
+    data.bSize = bSize;
+
+    char bType;
+    switch ((data.bytes[0] >> 2) & 0b00000011)
+    {
+    case 0b00:
+        bType = 'M';
+        break;
+    case 0b01:
+        bType = 'G';
+        break;
+    case 0b10:
+        bType = 'L';
+        break;
+    case 0b11:
+        bType = 'S';
+        break;
+    }
+
+    data.bType = bType;
+
+    uint8_t bTag = data.bytes[0] >> 4;
+
+    if (bTag == 0b0000)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "UsagePage";
+            data.color = 0x5588FF;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Usage";
+            data.color = 0x5588FF;
+        }
+    }
+    else if (bTag == 0b0001)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "LogicalMinimum";
+            data.color = 0x00FF00;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "UsageMinimum";
+            data.color = 0x22DDDD;
+        }
+    }
+    else if (bTag == 0b0010)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "LogicalMaximum";
+            data.color = 0x00FF00;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "UsageMaximum";
+            data.color = 0x22DDDD;
+        }
+    }
+    else if (bTag == 0b0011)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "PhysicalMinimum";
+            data.color = 0x00CC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "DesignatorIndex";
+            data.color = 0xDD0044;
+        }
+    }
+    else if (bTag == 0b0100)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "PhysicalMaximum";
+            data.color = 0x00CC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "DesignatorMinimum";
+            data.color = 0x00CC55;
+        }
+    }
+    else if (bTag == 0b0101)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "UnitExponent";
+            data.color = 0xDDCC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "DesignatorMaximum";
+            data.color = 0xDDCC55;
+        }
+    }
+    else if (bTag == 0b0110)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "Unit";
+            data.color = 0x00CC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "StringIndex";
+            data.color = 0xDD0044;        
+        }
+    }
+    else if (bTag == 0b0111)
+    {
+        if (bType == 'G')
+        {
+            data.memo = "ReportSize";
+            data.color = 0xFFCC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Delimiter";
+            data.color = 0x00CC55;
+        }
+    }
+    else if (bTag == 0b1000)
+    {
+        if (bType == 'M')
+        {
+            data.memo = "Input";
+            data.color = 0xFF00CC;
+        }
+        else if (bType == 'G')
+        {
+            data.memo = "ReportID";
+            data.color = 0xFFCC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Unknown";
+            data.color = 0x444444;
+        }
+    }
+    else if (bTag == 0b1001)
+    {
+        if (bType == 'M')
+        {
+            data.memo = "Output";
+            data.color = 0xCCFFCC;
+        }
+        else if (bType == 'G')
+        {
+            data.memo = "ReportCount";
+            data.color = 0xFFCC55;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Unknown";
+            data.color = 0x444444;
+        }
+    }
+    else if (bTag == 0b1010)
+    {
+        if (bType == 'M')
+        {
+            data.memo = "Collection";
+            data.color = 0xDD3355;
+        }
+        else if (bType == 'G')
+        {
+            data.memo = "Push";
+            data.color = 0xDD7777;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Unknown";
+            data.color = 0x444444;
+        }
+    }
+    else if (bTag == 0b1011)
+    {
+        if (bType == 'M')
+        {
+            data.memo = "Feature";
+            data.color = 0x00CC55;
+        }
+        else if (bType == 'G')
+        {
+            data.memo = "Pop";
+            data.color = 0xDD7777;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Unknown";
+            data.color = 0x444444;
+        }
+    }
+    else if (bTag == 0b1100)
+    {
+        if (bType == 'M')
+        {
+            data.memo = "End Collection";
+            data.color = 0xCC22CC;
+        }
+        else if (bType == 'L')
+        {
+            data.memo = "Unknown";
+            data.color = 0x444444;
+        }
+    }
+    else if (bTag == 0b1101)
+    {
+        data.memo = "Unknown";
+        data.color = 0x444444;
+    }
+    else if (bTag == 0b1110)
+    {
+        data.memo = "Unknown";
+        data.color = 0x444444;
+    }
+    else if (bTag == 0b1111)
+    {
+        data.memo = "Unknown";
+        data.color = 0x444444;
+    }
+    return data;
+}
+
 int main()
 {
     // ファイルを開く
@@ -90,8 +334,8 @@ int main()
             line.length() > pattern_pos + 7 &&
             (line[pattern_pos + 7] == '1' || line[pattern_pos + 7] == '2' || line[pattern_pos + 7] == '6'))
         {
-        // if (true)
-        // {
+            // if (true)
+            // {
 
             std::string extracted = line.substr(pattern_pos);
 
@@ -99,54 +343,49 @@ int main()
             bool outerCollection = false;
 
             std::vector<ByteData> byteDataArray;
-            for (size_t i = 0; i + 3 < extracted.length(); i += 4)
+            for (size_t i = 0; i + 1 < extracted.length();)
             {
-                std::string wordStr = extracted.substr(i, 4);
-                uint16_t word = std::stoi(wordStr, nullptr, 16);
+                // 2文字（16進数1バイト分）を切り出し
+                std::string byteStr = extracted.substr(i, 2);
 
-                uint8_t highByte = (word >> 8) & 0xFF;
-                uint8_t lowByte = word & 0xFF;
+                // 現在のバイトを取得
+                uint8_t currentByte = std::stoi(byteStr, nullptr, 16);
 
-                std::vector<ByteData> parsedData = doubleParse(highByte, lowByte, "hoge", 0x555555);
-
-                if (false) // !Only Coloring
+                // サイズを計算（下位2ビットで判断）
+                int byteCount = 1; // 現在のバイトを含む
+                switch (currentByte & 0b00000011)
                 {
-                    if (i == 0 && highByte == 0x05 && lowByte == 0x01)
-                    {
-                        parsedData = doubleParse(0x05, 0x01, "UsagePage(Generic Desktop)", 0x6666FF);
-                    }
-                    else if (i == 1 * 4 && highByte == 0x09 && (lowByte == 0x02 || lowByte == 0x01 || lowByte == 0x06))
-                    {
-                        if (lowByte == 0x02)
-                            parsedData = doubleParse(highByte, lowByte, "Usage(Mouse)", 0x9999FF);
-                        else if (lowByte == 0x01)
-                            parsedData = doubleParse(highByte, lowByte, "Usage(Pointer)", 0x9999FF);
-                        else if (lowByte == 0x06)
-                            parsedData = doubleParse(highByte, lowByte, "Usage(Keyboard)", 0x9999FF);
-                        line2pass = true;
-                    }
-                    else if (line2pass && (highByte == 0xA1) && i == 2 * 4)
-                    {
-                        if (collectionMap.find(lowByte) != collectionMap.end())
-                            parsedData = doubleParse(highByte, lowByte, collectionMap[lowByte], 0xCC22CC);
-                        else
-                            parsedData = doubleParse(highByte, lowByte, "Collection(Unknown)", 0xCC00CC);
-                        outerCollection = true;
-                    }
-                    else if (outerCollection && (highByte == 0xC0) && i == 3 * 4)
-                    {
-                        parsedData = doubleParse(highByte, lowByte, "End Collection", 0xCC22CC);
-                        outerCollection = false;
-                    }
+                case 0b00:
+                    byteCount = 1;
+                    break; // 追加データなし
+                case 0b01:
+                    byteCount = 2;
+                    break; // 1バイト追加
+                case 0b10:
+                    byteCount = 3;
+                    break; // 2バイト追加
+                case 0b11:
+                    byteCount = 4;
+                    break; // 3バイト追加
                 }
-                else // Coloring
+
+                // バイトデータを収集
+                std::vector<uint8_t> adder;
+                for (int j = 0; j < byteCount && (i + j * 2) < extracted.length(); j++)
                 {
-                    if (coloringMap.find(highByte) != coloringMap.end())
-                        parsedData = doubleParse(highByte, lowByte, coloringMap[highByte], coloringMapColor[highByte]);
-                    else
-                        parsedData = doubleParse(highByte, lowByte, "Unknown", 0x444444);
+                    std::string nextByteStr = extracted.substr(i + j * 2, 2);
+                    adder.push_back(std::stoi(nextByteStr, nullptr, 16));
                 }
-                byteDataArray.insert(byteDataArray.end(), parsedData.begin(), parsedData.end());
+
+                // 次の位置へ移動（16進数文字列なので2倍）
+                i += byteCount * 2;
+
+                byteDataArray.push_back(initNewLine(adder));
+            }
+
+            for (size_t i = 0; i < byteDataArray.size(); i++)
+            {
+                byteDataArray[i] = annotateItem(byteDataArray[i]);
             }
 
             // 構造体の内容を表示
@@ -155,29 +394,55 @@ int main()
             {
                 const ByteData &data = byteDataArray[i];
 
-                if (i % 2 == 0)
+                // if (i % 2 == 0)
+                if (true)
                 {
                     if (i < 10)
                         std::cout << " ";
 
                     std::cout << i << ": ";
 
-                    printf("\033[38;2;%d;%d;%dm%02X\033[0m ",
+                    // 最初のバイトを表示
+                    printf("\033[38;2;%d;%d;%dm%02X",
                            (data.color >> 16) & 0xFF,
                            (data.color >> 8) & 0xFF,
                            data.color & 0xFF,
-                           data.value);
+                           data.bytes[0]);
+
+                    // 2バイト目以降があれば表示
+                    for (size_t j = 1; j < data.bytes.size(); j++)
+                    {
+                        printf(" %02X", data.bytes[j]);
+                    }
+
+                    printf("\033[0m ");
                 }
                 else
                 {
-                    printf("\033[38;2;%d;%d;%dm%02X  %s\033[0m\n",
+                    // 最初のバイトを表示
+                    printf("\033[38;2;%d;%d;%dm%02X",
                            (data.color >> 16) & 0xFF,
                            (data.color >> 8) & 0xFF,
                            data.color & 0xFF,
-                           data.value,
-                           data.memo.c_str());
+                           data.bytes[0]);
+
+                    // 2バイト目以降があれば表示
+                    for (size_t j = 1; j < data.bytes.size(); j++)
+                    {
+                        printf("%02X", data.bytes[j]);
+                    }
+
+                    printf("  %s\033[0m\n", data.memo.c_str());
+                }
+                printf(data.memo.c_str());
+                printf("\n");
+
+                if (data.bytes[0] == 0xC0)
+                {
+                    break;
                 }
             }
+            break;
 
             line_count++;
             if (line_count > 1000)

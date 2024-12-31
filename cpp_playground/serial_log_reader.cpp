@@ -1,3 +1,6 @@
+// Special thanks to:
+// https://www.noser.com/techblog/first-steps-with-an-usb-hid-report/
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -33,9 +36,35 @@ std::vector<ByteData> doubleParse(uint8_t byteA, uint8_t byteB, std::string memo
 
 std::map<int, std::string> collectionMap = {
     {0x00, "Collection(Physical)"},
-    {0x01, "Collection(Application)"}
-};
+    {0x01, "Collection(Application)"}};
 
+std::map<int, std::string> coloringMap = {
+    {0x05, "UsagePage"},
+    {0x09, "Usage"},
+    {0x15, "LogicalMinimum"},
+    {0x19, "UsageMinimum"},
+    {0x29, "UsageMaximum"},
+    {0x25, "LogicalMaximum"},
+    {0x75, "ReportSize"},
+    {0x81, "Input?"},
+    {0x85, "ReportID"},
+    {0x95, "ReportCount"},
+    {0xA1, "Collection"},
+    {0xC0, "End Collection"}};
+
+std::map<int, uint32_t> coloringMapColor = {
+    {0x05, 0x6666FF},
+    {0x09, 0x9999FF},
+    {0x15, 0xFFFF22},
+    {0x19, 0xCCDDDD},
+    {0x29, 0xCCDDDD},
+    {0x25, 0xFFFF22},
+    {0x75, 0x00FF22},
+    {0x81, 0xFF6622},
+    {0x85, 0x00FF22},
+    {0x95, 0x00FF22},
+    {0xA1, 0xCC22CC},
+    {0xC0, 0xCC22CC}};
 
 int main()
 {
@@ -61,13 +90,14 @@ int main()
             line.length() > pattern_pos + 7 &&
             (line[pattern_pos + 7] == '1' || line[pattern_pos + 7] == '2' || line[pattern_pos + 7] == '6'))
         {
+        // if (true)
+        // {
 
             std::string extracted = line.substr(pattern_pos);
 
             bool line2pass = false;
             bool outerCollection = false;
 
-            // 2バイト単位でデータを処理
             std::vector<ByteData> byteDataArray;
             for (size_t i = 0; i + 3 < extracted.length(); i += 4)
             {
@@ -79,32 +109,42 @@ int main()
 
                 std::vector<ByteData> parsedData = doubleParse(highByte, lowByte, "hoge", 0x555555);
 
-                if (i == 0 && highByte == 0x05 && lowByte == 0x01)
+                if (false) // !Only Coloring
                 {
-                    parsedData = doubleParse(0x05, 0x01, "UsagePage(Generic Desktop)", 0x6666FF);
+                    if (i == 0 && highByte == 0x05 && lowByte == 0x01)
+                    {
+                        parsedData = doubleParse(0x05, 0x01, "UsagePage(Generic Desktop)", 0x6666FF);
+                    }
+                    else if (i == 1 * 4 && highByte == 0x09 && (lowByte == 0x02 || lowByte == 0x01 || lowByte == 0x06))
+                    {
+                        if (lowByte == 0x02)
+                            parsedData = doubleParse(highByte, lowByte, "Usage(Mouse)", 0x9999FF);
+                        else if (lowByte == 0x01)
+                            parsedData = doubleParse(highByte, lowByte, "Usage(Pointer)", 0x9999FF);
+                        else if (lowByte == 0x06)
+                            parsedData = doubleParse(highByte, lowByte, "Usage(Keyboard)", 0x9999FF);
+                        line2pass = true;
+                    }
+                    else if (line2pass && (highByte == 0xA1) && i == 2 * 4)
+                    {
+                        if (collectionMap.find(lowByte) != collectionMap.end())
+                            parsedData = doubleParse(highByte, lowByte, collectionMap[lowByte], 0xCC22CC);
+                        else
+                            parsedData = doubleParse(highByte, lowByte, "Collection(Unknown)", 0xCC00CC);
+                        outerCollection = true;
+                    }
+                    else if (outerCollection && (highByte == 0xC0) && i == 3 * 4)
+                    {
+                        parsedData = doubleParse(highByte, lowByte, "End Collection", 0xCC22CC);
+                        outerCollection = false;
+                    }
                 }
-                else if (i == 1*4 && highByte == 0x09 && (lowByte == 0x02 || lowByte == 0x01 || lowByte == 0x06))
+                else // Coloring
                 {
-                    if (lowByte == 0x02)
-                        parsedData = doubleParse(highByte, lowByte, "Usage(Mouse)", 0x9999FF);
-                    else if (lowByte == 0x01)
-                        parsedData = doubleParse(highByte, lowByte, "Usage(Pointer)", 0x9999FF);
-                    else if (lowByte == 0x06)
-                        parsedData = doubleParse(highByte, lowByte, "Usage(Keyboard)", 0x9999FF);
-                    line2pass = true;
-                }
-                else if (line2pass && (highByte == 0xA1) && i == 2*4)
-                {
-                    if (collectionMap.find(lowByte) != collectionMap.end())
-                        parsedData = doubleParse(highByte, lowByte, collectionMap[lowByte], 0xCC22CC);
+                    if (coloringMap.find(highByte) != coloringMap.end())
+                        parsedData = doubleParse(highByte, lowByte, coloringMap[highByte], coloringMapColor[highByte]);
                     else
-                        parsedData = doubleParse(highByte, lowByte, "Collection(Unknown)", 0xCC00CC);
-                    outerCollection = true;
-                }
-                else if (outerCollection && (highByte == 0xC0) && i == 3*4)
-                {
-                    parsedData = doubleParse(highByte, lowByte, "End Collection", 0xCC22CC);
-                    outerCollection = false;
+                        parsedData = doubleParse(highByte, lowByte, "Unknown", 0x444444);
                 }
                 byteDataArray.insert(byteDataArray.end(), parsedData.begin(), parsedData.end());
             }
@@ -119,7 +159,7 @@ int main()
                 {
                     if (i < 10)
                         std::cout << " ";
-                   
+
                     std::cout << i << ": ";
 
                     printf("\033[38;2;%d;%d;%dm%02X\033[0m ",
